@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>くじ引き</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.container {
+  background: white;
+  border-radius: 20px;
+  padding: 40px;
+  max-width: 500px;
+  width: 100%;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+h1 {
+  text-align: center;
+  color: #333;
+  margin-bottom: 30px;
+  font-size: 28px;
+}
+.screen { display: none; }
+.screen.active { display: block; }
+.input-group { margin-bottom: 20px; }
+label {
+  display: block;
+  color: #555;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+input[type="number"], input[type="text"], textarea {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid #e0e0e0;
+  border-radius: 10px;
+  font-size: 16px;
+  transition: border-color 0.3s;
+  font-family: inherit;
+}
+textarea { resize: vertical; }
+input:focus, textarea:focus {
+  outline: none;
+  border-color: #667eea;
+}
+button {
+  width: 100%;
+  padding: 14px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+button:hover { transform: translateY(-2px); }
+button:active { transform: translateY(0); }
+.name-grid { display: grid; gap: 10px; margin: 20px 0; }
+.name-button {
+  padding: 16px;
+  background: #f5f5f5;
+  border: 2px solid #e0e0e0;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+  transition: all 0.3s;
+}
+.name-button:hover {
+  background: #667eea;
+  color: white;
+  transform: translateY(-2px);
+}
+.share-box {
+  background: #f9f9f9;
+  padding: 15px;
+  border-radius: 10px;
+  margin: 20px 0;
+  word-break: break-all;
+  font-size: 12px;
+  color: #555;
+  border: 1px dashed #ccc;
+}
+.copy-btn {
+  margin-top: 10px;
+  padding: 8px 16px;
+  width: auto;
+  font-size: 14px;
+  background: #4caf50;
+}
+.result {
+  text-align: center;
+  padding: 40px 20px;
+  animation: fadeIn 0.5s;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.8); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-10px); }
+  75% { transform: translateX(10px); }
+}
+.result-emoji {
+  font-size: 80px;
+  margin-bottom: 20px;
+}
+.result.win .result-emoji {
+  animation: shake 0.5s ease-in-out 3;
+}
+.result-text {
+  font-size: 36px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+.result.win .result-text { color: #ff6b6b; }
+.result.lose .result-text { color: #666; }
+.result-sub {
+  font-size: 16px;
+  color: #888;
+}
+.back-btn {
+  margin-top: 20px;
+  background: #eee;
+  color: #333;
+}
+.info {
+  text-align: center;
+  color: #666;
+  margin-bottom: 15px;
+  font-size: 14px;
+}
+.winner-count {
+  background: #fff3cd;
+  color: #856404;
+  padding: 10px;
+  border-radius: 8px;
+  text-align: center;
+  margin-bottom: 15px;
+  font-size: 14px;
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+<div class="screen active" id="screen-setup">
+<h1>🎯 くじ引き設定</h1>
+<div class="input-group">
+<label>参加者の名前（1行に1人ずつ）</label>
+<textarea id="names" rows="6">ぷら
+えむ
+うまる
+ささ
+ゆき</textarea>
+</div>
+<div class="input-group">
+<label>当たりの数</label>
+<input type="number" id="winners" value="1" min="1">
+</div>
+<button onclick="generateLink()">🎲 くじを作成する</button>
+</div>
+
+<div class="screen" id="screen-share">
+<h1>✅ くじができました</h1>
+<div class="info">このURLを参加者全員に共有してください</div>
+<div class="share-box" id="share-url"></div>
+<button class="copy-btn" onclick="copyURL()">📋 URLをコピー</button>
+<button onclick="startDrawing()" style="margin-top:15px;">くじを引く画面へ</button>
+<button class="back-btn" onclick="showScreen('screen-setup')" style="margin-top:10px;">戻る</button>
+</div>
+
+<div class="screen" id="screen-draw">
+<h1>🎰 くじを引こう</h1>
+<div class="winner-count" id="winner-count"></div>
+<div class="info">自分の名前をクリック</div>
+<div class="name-grid" id="name-grid"></div>
+</div>
+
+<div class="screen" id="screen-result">
+<div class="result" id="result-content"></div>
+<button class="back-btn" onclick="backToDraw()">みんなの画面に戻る</button>
+</div>
+
+</div>
+
+<script>
+let data = null;
+
+function encodeData(obj) {
+  const json = JSON.stringify(obj);
+  return btoa(unescape(encodeURIComponent(json)));
+}
+
+function decodeData(str) {
+  const json = decodeURIComponent(escape(atob(str)));
+  return JSON.parse(json);
+}
+
+function loadFromURL() {
+  const params = new URLSearchParams(window.location.search);
+  const encoded = params.get('d');
+  if (encoded) {
+    try {
+      data = decodeData(encoded);
+      startDrawing();
+    } catch (e) {
+      console.error('データ読み込みエラー', e);
+      alert('URLが正しくありません');
+    }
+  }
+}
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function generateLink() {
+  const namesText = document.getElementById('names').value.trim();
+  const names = namesText.split('\n').map(n => n.trim()).filter(n => n);
+  const winnerCount = parseInt(document.getElementById('winners').value);
+
+  if (names.length < 2) { alert('2人以上入力してください'); return; }
+  if (winnerCount >= names.length) { alert('当たりの数は参加者数より少なくしてください'); return; }
+  if (winnerCount < 1) { alert('当たりの数は1以上にしてください'); return; }
+
+  const shuffled = [...Array(names.length).keys()].sort(() => Math.random() - 0.5);
+  const winnerIndices = shuffled.slice(0, winnerCount);
+
+  data = { names: names, winnerIndices: winnerIndices };
+
+  const encoded = encodeData(data);
+  const url = window.location.origin + window.location.pathname + '?d=' + encoded;
+
+  document.getElementById('share-url').textContent = url;
+  showScreen('screen-share');
+}
+
+function copyURL() {
+  const url = document.getElementById('share-url').textContent;
+  navigator.clipboard.writeText(url).then(() => {
+    alert('URLをコピーしました！');
+  });
+}
+
+function startDrawing() {
+  if (!data) return;
+
+  const grid = document.getElementById('name-grid');
+  grid.innerHTML = '';
+
+  document.getElementById('winner-count').textContent =
+    `当たり: ${data.winnerIndices.length}人 / 全${data.names.length}人`;
+
+  data.names.forEach((name, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'name-button';
+    btn.textContent = name;
+    btn.onclick = () => drawLot(i);
+    grid.appendChild(btn);
+  });
+
+  showScreen('screen-draw');
+}
+
+function drawLot(index) {
+  const isWinner = data.winnerIndices.includes(index);
+  const resultDiv = document.getElementById('result-content');
+
+  if (isWinner) {
+    resultDiv.className = 'result win';
+    resultDiv.innerHTML = `
+      <div class="result-emoji">🎉</div>
+      <div class="result-text">当たり！</div>
+      <div class="result-sub">${data.names[index]}さん、おめでとう！</div>
+    `;
+  } else {
+    resultDiv.className = 'result lose';
+    resultDiv.innerHTML = `
+      <div class="result-emoji">😢</div>
+      <div class="result-text">はずれ</div>
+      <div class="result-sub">${data.names[index]}さん、残念！</div>
+    `;
+  }
+
+  showScreen('screen-result');
+}
+
+function backToDraw() {
+  showScreen('screen-draw');
+}
+
+loadFromURL();
+</script>
+</body>
+</html>
